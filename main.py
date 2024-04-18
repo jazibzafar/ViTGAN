@@ -12,6 +12,8 @@ import torch.nn as nn
 import torchvision
 import torchvision.transforms as T
 from torchvision.utils import make_grid
+from torch.utils.data.dataloader import DataLoader
+from nrw_dataset import GeoWebDataset, TransformAndSplit
 
 
 def exp_mov_avg(Gs, G, alpha = 0.999, global_step = 999):
@@ -89,16 +91,33 @@ if __name__ == '__main__':
                         help = "Data root dir of your training data")
     parser.add_argument("--sample-interval", type = int, default = 1000,
                         help = "Interval for sampling image from generator")
-    parser.add_argument("--gpu-id", type = int, default = 1,
-                        help = "Select the specific gpu to training")
+    # parser.add_argument("--gpu-id", type = int, default = 1,
+    #                     help = "Select the specific gpu to training")
     args = parser.parse_args()
 
     # Device
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu_id)
+    # os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu_id)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # Dataloader
-    data_loader = utils.get_dataloader(args.data_dir, batch_size = args.batch_size)
+    # dataset and data loading
+    # data_loader = utils.get_dataloader(args.data_dir, batch_size = args.batch_size)
+    augmentations = TransformAndSplit(input_size=args.input_size)
+    train_dataset = GeoWebDataset(root=args.train_path,
+                                  augmentations=augmentations)
+    test_dataset = GeoWebDataset(root=args.test_path,
+                                 augmentations=augmentations)
+
+    train_loader = DataLoader(train_dataset,
+                              num_workers=args.num_workers,
+                              batch_size=args.batch_size,
+                              pin_memory=True,
+                              drop_last=True,)
+
+    test_loader = DataLoader(test_dataset,
+                             num_workers=args.num_workers,
+                             batch_size=args.batch_size,
+                             pin_memory=True,
+                             drop_last=True, )
 
 
     # Create the log folder
@@ -122,4 +141,4 @@ if __name__ == '__main__':
     )
 
     # Start Training
-    train(netG, netG_s, netD, optimizer_g, optimizer_d, data_loader, device)
+    train(netG, netG_s, netD, optimizer_g, optimizer_d, train_loader, device)
